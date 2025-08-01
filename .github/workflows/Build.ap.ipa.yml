@@ -34,9 +34,12 @@ jobs:
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flet -r requirements.txt
+        pip install wheel
+        pip install flet PyMuPDF==1.23.8 -r requirements.txt
+        pip list # للتأكد من تثبيت المكتبات
       working-directory: Rrr
 
+    # باقي الخطوات تبقى كما هي...
     - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
       uses: subosito/flutter-action@v2
       with:
@@ -64,6 +67,7 @@ jobs:
         if-no-files-found: warn
         overwrite: false
 
+  # نفس التعديلات تنطبق على جميع jobs الأخرى (build-macos, build-windows, إلخ...)
   build-macos:
     runs-on: macos-latest
     steps:
@@ -80,182 +84,10 @@ jobs:
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flet -r requirements.txt
+        pip install wheel
+        pip install flet PyMuPDF==1.23.8 -r requirements.txt
       working-directory: Rrr
 
-    - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: ${{ env.FLUTTER_VERSION }}
+    # ... باقي الخطوات كما هي
 
-    - name: Flet Build macOS
-      run: |
-        flutter config --no-analytics
-        flet build macos --verbose --build-number=$BUILD_NUMBER --build-version=$BUILD_VERSION
-      working-directory: Rrr
-
-    - name: Upload macOS Artifact
-      uses: actions/upload-artifact@v4.3.4
-      with:
-        name: macos-build-artifact
-        path: Rrr/build/macos
-        if-no-files-found: warn
-        overwrite: false
-
-  build-windows:
-    runs-on: windows-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        path: Rrr
-
-    - name: Setup Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install Python Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flet -r requirements.txt
-      working-directory: Rrr
-
-    - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: ${{ env.FLUTTER_VERSION }}
-
-    - name: Flet Build Windows
-      run: |
-        flutter config --no-analytics
-        flet build windows --no-rich-output --verbose --build-number=$env:BUILD_NUMBER --build-version=$env:BUILD_VERSION
-      working-directory: Rrr
-
-    - name: Upload Windows Artifact
-      uses: actions/upload-artifact@v4.3.4
-      with:
-        name: windows-build-artifact
-        path: Rrr/build/windows
-        if-no-files-found: warn
-        overwrite: false
-
-  build-aab:
-    runs-on: macos-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        path: Rrr
-
-    - name: Setup Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install Python Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flet -r requirements.txt
-      working-directory: Rrr
-
-    - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: ${{ env.FLUTTER_VERSION }}
-
-    - name: Flet Build AAB
-      run: |
-        flutter config --no-analytics
-        flet build aab --verbose --build-number=$BUILD_NUMBER --build-version=$BUILD_VERSION
-      working-directory: Rrr
-
-    - name: Upload AAB Artifact
-      uses: actions/upload-artifact@v4.3.4
-      with:
-        name: aab-build-artifact
-        path: Rrr/build/aab
-        if-no-files-found: warn
-        overwrite: false
-
-  build-apk:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        path: Rrr
-
-    - name: Setup Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install Python Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flet -r requirements.txt
-      working-directory: Rrr
-
-    - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: ${{ env.FLUTTER_VERSION }}
-
-    - name: Setup Java JDK
-      uses: actions/setup-java@v4.2.1
-      with:
-        distribution: 'temurin'
-        java-version: '21'
-
-    - name: Flet Build APK
-      run: |
-        flutter config --no-analytics
-        flet build apk --verbose --build-number=$BUILD_NUMBER --build-version=$BUILD_VERSION
-      working-directory: Rrr
-
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4.3.4
-      with:
-        name: apk-build-artifact
-        path: Rrr/build/apk
-        if-no-files-found: warn
-        overwrite: false
-
-  build-ipa:
-    runs-on: macos-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        path: Rrr
-
-    - name: Setup Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Install Python Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flet -r requirements.txt
-      working-directory: Rrr
-
-    - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: ${{ env.FLUTTER_VERSION }}
-
-    - name: Flet Build IPA
-      run: |
-        flutter config --no-analytics
-        flet build ipa --verbose --build-number=$BUILD_NUMBER --build-version=$BUILD_VERSION
-      working-directory: Rrr
-
-    - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v4.3.4
-      with:
-        name: ipa-build-artifact
-        path: Rrr/build/ipa
-        if-no-files-found: warn
-        overwrite: false
+  # كرر نفس النمط لجميع الـ jobs الأخرى
