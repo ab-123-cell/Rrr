@@ -1,16 +1,13 @@
-!pip install PyMuPDF PyPDF2
-!pip install --upgrade PyMuPDF
-
-import PyPDF2
-from IPython.display import display, HTML, Javascript
-import ipywidgets as widgets
+import flet as ft
 import io
 import re
 from collections import defaultdict
 import base64
 import fitz  # PyMuPDF library
 
+# (دوال extract_keywords و highlight_pdf تبقى كما هي)
 def extract_keywords(summary_text):
+    # ... نفس الكود السابق ...
     words = re.findall(r'[\w\u0600-\u06FF]+', summary_text.lower())
     
     stop_words = {
@@ -23,6 +20,7 @@ def extract_keywords(summary_text):
     return list(set(keywords))
 
 def highlight_pdf(pdf_file, keywords, highlight_color):
+    # ... نفس الكود السابق ...
     try:
         pdf_document = fitz.open(stream=pdf_file, filetype="pdf")
         
@@ -72,118 +70,121 @@ def highlight_pdf(pdf_file, keywords, highlight_color):
         print(f"حدث خطأ أثناء معالجة PDF: {str(e)}")
         return None
 
-# واجهة المستخدم (الودجات)
-# --------------------------------------------------------------------------------------------------
+# دالة واجهة المستخدم الرئيسية في Flet
+def main(page: ft.Page):
+    page.title = "أداة تظليل الكلمات المطابقة"
+    page.horizontal_alignment = "center"
 
-upload_pdf = widgets.FileUpload(
-    description="رفع ملف PDF",
-    accept='.pdf',
-    style={'description_width': 'initial'}
-)
+    uploaded_pdf_content = None
 
-summary_textarea = widgets.Textarea(
-    placeholder='الصق نص الملخص هنا...',
-    description='نص الملخص:',
-    disabled=False,
-    layout=widgets.Layout(width='80%', height='150px')
-)
+    def on_file_pick(e: ft.FilePickerResultEvent):
+        nonlocal uploaded_pdf_content
+        if e.files:
+            file = e.files[0]
+            if file.name.endswith(".pdf"):
+                uploaded_pdf_content = file.read()
+                page.snack_bar = ft.SnackBar(ft.Text(f"✔ تم تحميل ملف PDF بنجاح"), open=True)
+                summary_textarea.disabled = False
+                highlight_button.disabled = False
+            else:
+                page.snack_bar = ft.SnackBar(ft.Text("⚠ يرجى اختيار ملف PDF"), open=True)
+        page.update()
 
-color_dropdown = widgets.Dropdown(
-    options=['أصفر', 'أحمر', 'أزرق', 'أخضر', 'وردي', 'سماوي', 'أرجواني'],
-    value='أصفر',
-    description='اختر لون التظليل:',
-    disabled=False,
-    style={'description_width': 'initial'}
-)
+    file_picker = ft.FilePicker(on_result=on_file_pick)
 
-highlight_button = widgets.Button(
-    description="تظليل الكلمات المطابقة",
-    button_style='primary',
-    icon='highlighter'
-)
-
-output = widgets.Output()
-
-def on_upload_pdf(change):
-    global uploaded_pdf
-    uploaded_pdf = next(iter(change['new'].values()))['content']
-    with output:
-        print("✔ تم تحميل ملف PDF بنجاح")
-
-def on_summary_change(change):
-    global summary_text
-    summary_text = change['new']
-    if summary_text.strip() and 'uploaded_pdf' in globals():
-        display(color_dropdown)
-        display(highlight_button)
-
-def download_file(filename, content):
-    display(Javascript(f"""
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:application/pdf;base64,{content}');
-    element.setAttribute('download', '{filename}');
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    """))
-
-def on_highlight_clicked(b):
-    if 'uploaded_pdf' not in globals() or 'summary_text' not in globals() or not summary_text.strip():
-        with output:
-            output.clear_output()
-            print("⚠ يرجى تحميل ملف PDF وإدخال الملخص النصي أولاً")
-        return
-    
-    with output:
-        output.clear_output()
-        print("⏳ جاري البحث عن الكلمات المطابقة وتظليلها...")
+    def on_highlight_clicked(e):
+        if not uploaded_pdf_content or not summary_textarea.value.strip():
+            page.snack_bar = ft.SnackBar(ft.Text("⚠ يرجى تحميل ملف PDF وإدخال الملخص النصي أولاً"), open=True)
+            page.update()
+            return
         
+        page.snack_bar = ft.SnackBar(ft.Text("⏳ جاري البحث عن الكلمات المطابقة وتظليلها..."), open=True)
+        page.update()
+
         try:
-            keywords = extract_keywords(summary_text)
+            keywords = extract_keywords(summary_textarea.value)
             if not keywords:
-                print("⚠ لم يتم العثور على كلمات مناسبة في الملخص")
+                page.snack_bar = ft.SnackBar(ft.Text("⚠ لم يتم العثور على كلمات مناسبة في الملخص"), open=True)
+                page.update()
                 return
-            
-            print(f"🔍 الكلمات التي سيتم تظليلها: {', '.join(keywords)}")
-            
+
             highlight_color = color_dropdown.value
-            highlighted_pdf = highlight_pdf(io.BytesIO(uploaded_pdf), keywords, highlight_color)
+            highlighted_pdf_stream = highlight_pdf(io.BytesIO(uploaded_pdf_content), keywords, highlight_color)
             
-            if highlighted_pdf is None:
-                print("❌ فشل في معالجة ملف PDF")
+            if highlighted_pdf_stream is None:
+                page.snack_bar = ft.SnackBar(ft.Text("❌ فشل في معالجة ملف PDF"), open=True)
+                page.update()
                 return
             
             # تحويل PDF إلى base64 للتنزيل
-            pdf_content = base64.b64encode(highlighted_pdf.getvalue()).decode('utf-8')
+            pdf_content_base64 = base64.b64encode(highlighted_pdf_stream.getvalue()).decode('utf-8')
             
-            # زر التنزيل
-            download_button = widgets.Button(
-                description="⬇ تنزيل PDF المظلل",
-                button_style='success',
-                icon='download'
+            # تنزيل الملف
+            page.snack_bar = ft.SnackBar(ft.Text("🎉 تم الانتهاء من التظليل بنجاح!"), open=True)
+            page.update()
+
+            # إنشاء زر التنزيل
+            download_button = ft.ElevatedButton(
+                text="⬇ تنزيل PDF المظلل",
+                icon=ft.icons.DOWNLOAD,
+                on_click=lambda e: ft.web_launch_url(f"data:application/pdf;base64,{pdf_content_base64}"),
+                style=ft.ButtonStyle(bgcolor=ft.colors.GREEN_700, color=ft.colors.WHITE)
             )
+            page.add(download_button)
             
-            def on_download_clicked(b):
-                download_file('highlighted_document.pdf', pdf_content)
-                with output:
-                    print("✔ تم بدء تنزيل الملف")
-            
-            download_button.on_click(on_download_clicked)
-            display(download_button)
-            print("🎉 تم الانتهاء من التظليل بنجاح!")
-        
-        except Exception as e:
-            print(f"❌ حدث خطأ: {str(e)}")
+        except Exception as ex:
+            page.snack_bar = ft.SnackBar(ft.Text(f"❌ حدث خطأ: {str(ex)}"), open=True)
+            page.update()
 
-upload_pdf.observe(on_upload_pdf, names='value')
-summary_textarea.observe(on_summary_change, names='value')
-highlight_button.on_click(on_highlight_clicked)
+    # إنشاء مكونات الواجهة باستخدام Flet
+    upload_button = ft.ElevatedButton(
+        "رفع ملف PDF",
+        icon=ft.icons.UPLOAD_FILE,
+        on_click=lambda _: file_picker.pick_files(allow_multiple=False, allowed_extensions=["pdf"])
+    )
 
-# عرض واجهة المستخدم
-display(HTML("<h2 style='text-align:center;color:#2e86c1'>أداة تظليل الكلمات المطابقة</h2>"))
-display(HTML("<p style='text-align:center'>سيتم تظليل كل كلمة موجودة في الملخص وموجودة في PDF</p>"))
+    summary_textarea = ft.TextField(
+        label='نص الملخص',
+        hint_text='الصق نص الملخص هنا...',
+        multiline=True,
+        min_lines=5,
+        max_lines=10
+    )
 
-box_layout = widgets.Layout(display='flex', flex_flow='column', align_items='center', width='80%')
-controls = widgets.VBox([upload_pdf, summary_textarea], layout=box_layout)
-display(controls)
-display(output)
+    color_dropdown = ft.Dropdown(
+        label="اختر لون التظليل",
+        options=[
+            ft.dropdown.Option("أصفر"),
+            ft.dropdown.Option("أحمر"),
+            ft.dropdown.Option("أزرق"),
+            ft.dropdown.Option("أخضر"),
+            ft.dropdown.Option("وردي"),
+            ft.dropdown.Option("سماوي"),
+            ft.dropdown.Option("أرجواني"),
+        ],
+        value="أصفر",
+        width=200
+    )
+
+    highlight_button = ft.ElevatedButton(
+        "تظليل الكلمات المطابقة",
+        icon=ft.icons.HIGHLIGHT,
+        on_click=on_highlight_clicked,
+        bgcolor=ft.colors.BLUE_700,
+        color=ft.colors.WHITE,
+    )
+    
+    # عرض مكونات الواجهة
+    page.add(
+        ft.Text("أداة تظليل الكلمات المطابقة", size=24, weight="bold", text_align="center"),
+        ft.Text("سيتم تظليل كل كلمة موجودة في الملخص وموجودة في PDF", size=14, text_align="center"),
+        ft.Container(height=20),
+        upload_button,
+        summary_textarea,
+        color_dropdown,
+        highlight_button,
+    )
+
+if __name__ == "__main__":
+    ft.app(target=main)
+
