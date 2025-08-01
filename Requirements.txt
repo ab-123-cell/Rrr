@@ -1,7 +1,3 @@
-PyMuPDF(fitz)
+PyMuPDF
 PyPDF2
 ipywidgets 
-IPYTHON.DISPLAY 
-io
-re
-base64
