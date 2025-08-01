@@ -1,0 +1,7 @@
+PyMuPDF(fitz)
+PyPDF2
+ipywidgets 
+IPYTHON.DISPLAY 
+io
+re
+base64
